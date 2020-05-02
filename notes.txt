@@ -1,7 +1,7 @@
-notes
+if final s has radius > 1:
+target moves left
+otherwise
+target moves right
 
-setup:
-circle task
-robot picks a target, and moves to that target as efficiently as possible
-at each timestep recieve reward of distance from target
-real target moves around circle
+if we aggregate loss over multiple episodes,
+encourages influencing
