@@ -1,7 +1,3 @@
-if final s has radius > 1:
-target moves left
-otherwise
-target moves right
-
-if we aggregate loss over multiple episodes,
-encourages influencing
+-deterministic dynamics
+-1dof latent space (?)
+-best case for both with target & without

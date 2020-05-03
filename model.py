@@ -22,7 +22,7 @@ class CAE(nn.Module):
         self.e3 = nn.Linear(30,1)
         self.relu = nn.ReLU()
         # decoder
-        self.d1 = nn.Linear(2+1,10)
+        self.d1 = nn.Linear(2+2,10)
         self.d2 = nn.Linear(10,10)
         self.d3 = nn.Linear(10,2)
         self.d4 = nn.Linear(10,2)
@@ -75,10 +75,11 @@ def main():
     LR_STEP_SIZE = 4000
     LR_GAMMA = 0.5
 
+    theta_0 = 0.0
     traj_length = 10
     threshold = 0.2
     traj_prev = None
-    savename = "CAE_model_1.pt"
+    savename = "CAE_model_baseline.pt"
     model = CAE(traj_length, threshold)
 
     optimizer = optim.Adam(model.parameters(), lr=LR)
@@ -91,14 +92,15 @@ def main():
         loss = 0.0
         for trial in range(10):
             # reset target position
-            z = torch.tensor(1.0).view(1)
-            model.theta = 0.0
-            # initialize trajectory
-            target = model.target()
-            r, states = model.critic(z, target)
-            states = states.view(traj_length*2)
-            traj_prev = torch.cat((states, r), 0)
-            z = model.encoder(traj_prev)
+            # z = torch.tensor(0.0).view(1)
+            # model.theta = theta_0
+            # # initialize trajectory
+            # target = model.target()
+            # r, states = model.critic(z, target)
+            # states = states.view(traj_length*2)
+            # traj_prev = torch.cat((states, r), 0)
+            z = model.target()
+            # z = model.encoder(traj_prev)
             # loop through set number of tasks
             for episode in range(BATCH_SIZE):
                 # generate policy based on z
@@ -110,7 +112,8 @@ def main():
                 states = states.view(traj_length*2)
                 traj_prev = torch.cat((states, r), 0)
                 # latent dynamics
-                z = model.encoder(traj_prev)
+                z = model.target()
+                # z = model.encoder(traj_prev)
         if loss.item() < min_loss:
             min_loss = loss.item()
             min_epoch = epoch
