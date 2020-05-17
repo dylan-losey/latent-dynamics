@@ -37,9 +37,9 @@ def main():
     dqn_influence1 = pickle.load(open("results/dqn-influence1.pkl", "rb"))
     dqn_influence2 = pickle.load(open("results/dqn-influence2.pkl", "rb"))
     dqn_influence3 = pickle.load(open("results/dqn-influence3.pkl", "rb"))
-    ours_greedy1 = pickle.load(open("results/ours-greedy1.pkl", "rb"))
-    ours_greedy2 = pickle.load(open("results/ours-greedy2.pkl", "rb"))
-    ours_greedy3 = pickle.load(open("results/ours-greedy3.pkl", "rb"))
+    ours_greedy1 = pickle.load(open("results/ours-greedy4.pkl", "rb"))
+    ours_greedy2 = pickle.load(open("results/ours-greedy5.pkl", "rb"))
+    ours_greedy3 = pickle.load(open("results/ours-greedy6.pkl", "rb"))
     ours_influence1 = pickle.load(open("results/ours-influence4.pkl", "rb"))
     ours_influence2 = pickle.load(open("results/ours-influence5.pkl", "rb"))
     ours_influence3 = pickle.load(open("results/ours-influence6.pkl", "rb"))
@@ -64,8 +64,6 @@ def main():
     dqn_influence_thetas = (get_visits(dqn_influence1[1]) + get_visits(dqn_influence2[1]) + get_visits(dqn_influence3[1])) / 3.0
     ours_greedy_thetas = (get_visits(ours_greedy1[1]) + get_visits(ours_greedy2[1]) + get_visits(ours_greedy3[1])) / 3.0
     ours_influence_thetas = (get_visits(ours_influence1[1]) + get_visits(ours_influence2[1]) + get_visits(ours_influence3[1])) / 3.0
-
-    # print(ours_influence_thetas)
 
     fig, ax = plt.subplots()
     plot_visits(dqn_greedy_thetas, color="orange", radius=0.75, axis=ax)

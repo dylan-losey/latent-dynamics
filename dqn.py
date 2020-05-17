@@ -153,7 +153,7 @@ class Agent():
         z_reset = self.qnetwork_target.encode(states_2, rewards_2).detach()
         Q_targets_reset = self.qnetwork_target(z_reset, self.state_0).detach().max(1)[0].unsqueeze(1)
         """Compute Q targets for current states"""
-        Q_targets = rewards_2 + (gamma * Q_targets_next * (1 - dones_2)) + (0.0 * Q_targets_reset * dones_2)
+        Q_targets = rewards_2 + (gamma * Q_targets_next * (1 - dones_2)) + (gamma * Q_targets_reset * dones_2)
 
         """Get expected Q values from local model"""
         # z = info_1[-1] * 0      # for naive baseline
@@ -294,4 +294,4 @@ if __name__ == "__main__":
     env = Environment()
     agent = Agent(state_size=2, latent_size=8, action_size=5, seed=0)
     performance = train(agent, savename="models/circle_dqn.pth")
-    pickle.dump(performance, open("results/ours-greedy4.pkl", "wb" ))
+    pickle.dump(performance, open("results/ours-influence7.pkl", "wb" ))
