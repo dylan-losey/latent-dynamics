@@ -1,3 +1,3 @@
--deterministic dynamics
--1dof latent space (?)
--best case for both with target & without
+- have DQN working in general...
+- influence does not seem to be much different than greedy for ours
+- want to apply to new environment (robot? lunar lander?)
