@@ -8,20 +8,20 @@ def main():
 
     env = gym.make('LunarReacher-v2')
 
-    latent_size = 2
+    latent_size = 8
     qnetwork = QNetwork(state_size=8, latent_size=latent_size, action_size=4, seed=0)
-    qnetwork.load_state_dict(torch.load('models/lander_dqn.pth'))
+    qnetwork.load_state_dict(torch.load('models/lander_ours.pth'))
     qnetwork.eval()
     softmax = torch.nn.Softmax(dim=1)
     memory = ReplayBuffer(buffer_size=100, seed=0)
 
     episodes = 20
     scores = []
+    z = torch.FloatTensor([0.0]*latent_size)
 
     for episode in range(episodes):
 
         state = env.reset()
-        z = torch.FloatTensor([0.0]*latent_size)
         score = 0
 
         for t in range(1000):
@@ -38,11 +38,13 @@ def main():
             state = next_state
             score += reward
             if done:
-                memory.push()
-                z = torch.FloatTensor(info)
-                # last_traj_index = len(memory) - 1
-                # states, _, rewards, _, _, _ = memory.sample_last(last_traj_index)
-                # z = qnetwork.encode(states, rewards).detach()
+                # z = torch.FloatTensor(info)
+                last_traj_index = len(memory) - 1
+                states_0, _, rewards_0, _, _, _ = memory.sample_last(last_traj_index-1)
+                states_1, _, rewards_1, _, _, _ = memory.sample_last(last_traj_index)
+                states_prev = torch.cat((states_0[:,0:2].reshape(-1), states_1[:,0:2].reshape(-1)), 0)
+                rewards_prev = torch.cat((rewards_0.reshape(-1), rewards_1.reshape(-1)), 0)
+                z = qnetwork.encode(states_prev, rewards_prev).detach()
                 print(z)
                 break
 
