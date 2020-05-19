@@ -3,6 +3,7 @@ import random
 from collections import namedtuple, deque
 import matplotlib.pyplot as plt
 import pickle
+import sys
 
 import gym
 import torch
@@ -300,12 +301,12 @@ def train(agent, type,
 
 if __name__ == "__main__":
     env = gym.make("LunarReacher-v2")
-    type = "naive"
+    type = sys.argv[1]
     if type == "naive" or type == "dqn":
         latent_size = 2
-    elif type = "ours":
+    elif type == "ours":
         latent_size = 8
-    agent = Agent(type, state_size=8, latent_size=latent_size, action_size=4, seed=1)
+    agent = Agent(type, state_size=8, latent_size=latent_size, action_size=4, seed=100)
     # agent.qnetwork_local.load_state_dict(torch.load("models/lander_" + type + ".pth"))
     performance = train(agent, type, savename="models/lander_" + type + ".pth")
     pickle.dump(performance, open("results/lander_" + type + ".pkl", "wb" ))
