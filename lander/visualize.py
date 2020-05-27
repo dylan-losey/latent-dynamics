@@ -4,7 +4,7 @@ import numpy as np
 import pickle
 
 
-def moving_average(a, n=1000) :
+def moving_average(a, n=100) :
     ret = np.cumsum(a, dtype=float)
     ret[n:] = ret[n:] - ret[:-n]
     return ret[n - 1:] / n
@@ -24,7 +24,7 @@ def main():
     plt.plot(moving_average(ours_score))
     plt.xlabel("Task Number (Episodes)")
     plt.ylabel("Task Reward")
-    plt.legend(("naive","dqn","ours"))
+    plt.legend(("dqn-without-goal","dqn-with-goal","ours"))
     plt.show()
 
 if __name__ == "__main__":

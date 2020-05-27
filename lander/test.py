@@ -20,7 +20,7 @@ def main():
     softmax = torch.nn.Softmax(dim=1)
     memory = ReplayBuffer(buffer_size=10, seed=0)
 
-    episodes = 20
+    episodes = 100
     scores = []
     z = torch.FloatTensor([0.0]*latent_size)
 
@@ -37,21 +37,19 @@ def main():
                 action_values = softmax(action_values).cpu().data.numpy()[0]
             action = np.argmax(action_values)
 
-            env.render()
+            if episode > 90:
+                env.render()
             next_state, reward, done, info = env.step(action)
             memory.add(state, action, reward, next_state, done, info)
             state = next_state
             score += reward
             if done:
                 last_traj_index = len(memory) - 1
-                states_0, _, rewards_0, _, _, _ = memory.sample_last(last_traj_index-1)
-                states_1, _, rewards_1, _, _, _ = memory.sample_last(last_traj_index)
-                states_prev = torch.cat((states_0[:,0:2].reshape(-1), states_1[:,0:2].reshape(-1)), 0)
-                rewards_prev = torch.cat((rewards_0.reshape(-1), rewards_1.reshape(-1)), 0)
+                states, _, rewards, _, _, _ = memory.sample_last(last_traj_index)
                 if type == "dqn":
                     z = torch.FloatTensor(info)
                 if type == "ours":
-                    z = qnetwork.encode(states_prev, rewards_prev).detach()
+                    z = qnetwork.encode(states, rewards).detach()
                 print(z)
                 break
 

@@ -16,7 +16,8 @@ GAMMA = 0.99            # discount factor
 TAU = 1e-3              # for soft update of target parameters
 LR = 5e-4               # learning rate
 UPDATE_EVERY = 4        # how often to update the network
-TRAJ_LEN = 40           # how many timesteps in trajectory
+TRAJ_LEN_Q = 40         # how many timesteps in trajectory for Q value
+TRAJ_LEN_recon = 1      # how many timesteps in trajectory for enc-decoder
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -24,7 +25,7 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 class QNetwork(nn.Module):
     """Actor (Policy) Model."""
 
-    def __init__(self, state_size, latent_size, action_size, seed, fc1_units=64, fc2_units=64, enc_units=64):
+    def __init__(self, state_size, latent_size, action_size, seed, fc1_units=64, fc2_units=64, enc_units=16, dec_units=16):
         """Initialize parameters and build model.
         Params
         ======
@@ -35,6 +36,7 @@ class QNetwork(nn.Module):
             fc1_units (int): Number of nodes in first hidden layer
             fc2_units (int): Number of nodes in second hidden layer
             enc_units (int): Number of nodes in encoder hidden layers
+            dec_units (int): Number of nodes in decoder hidden layers
         """
         super(QNetwork, self).__init__()
         self.seed = torch.manual_seed(seed)
@@ -43,18 +45,29 @@ class QNetwork(nn.Module):
         self.fc2 = nn.Linear(fc1_units, fc2_units)
         self.fc3 = nn.Linear(fc2_units, action_size)
         # Encoder -> (states, rewards) to z
-        self.fc4 = nn.Linear(6, enc_units)
+        self.fc4 = nn.Linear(TRAJ_LEN_recon*(state_size+1), enc_units)
         self.fc5 = nn.Linear(enc_units, enc_units)
         self.fc6 = nn.Linear(enc_units, latent_size)
+        # Decoder -> z, s to r
+        self.fc7 = nn.Linear(latent_size+state_size, dec_units)
+        self.fc8 = nn.Linear(dec_units, dec_units)
+        self.fc9 = nn.Linear(dec_units, 1)
 
     def encode(self, state, reward):
-        context = torch.cat((state, reward), 0)
-        h1 = torch.tanh(self.fc4(context))
-        h2 = torch.tanh(self.fc5(h1))
+        context = torch.cat((state.view(-1), reward.view(-1)), 0)
+        h1 = F.relu(self.fc4(context))
+        h2 = F.relu(self.fc5(h1))
         return self.fc6(h2)
 
+    def decode(self, z, state):
+        z = z * torch.ones(len(state), device=device).view(-1,1)
+        context = torch.cat((z, state), 1)
+        h1 = F.relu(self.fc7(context))
+        h2 = F.relu(self.fc8(h1))
+        return self.fc9(h2)
+
     def forward(self, z, state):
-        z = z * torch.ones(len(state)).view(-1,1)
+        z = z * torch.ones(len(state), device=device).view(-1,1)
         context = torch.cat((z, state), 1)
         x = F.relu(self.fc1(context))
         x = F.relu(self.fc2(x))
@@ -99,20 +112,17 @@ class Agent():
         self.t_step = (self.t_step + 1) % UPDATE_EVERY
         if self.t_step == 0:
             # If enough samples are available in memory, get random subset and learn
-            if len(self.memory) > 3:
+            if len(self.memory) > 2:
                 index = self.memory.sample_pair()
                 self.learn(index, GAMMA)
 
     def predict(self):
-        """Predict the latent value for the next task given the current / last trajectory."""
+        """Predict the latent value for the next task given the current trajectory."""
         last_traj_index = len(self.memory) - 1
-        states_0, _, rewards_0, _, _, _ = self.memory.sample_last(last_traj_index-1)
-        states_1, _, rewards_1, _, _, _ = self.memory.sample_last(last_traj_index)
-        states_prev = torch.cat((states_0[:,0:2].reshape(-1), states_1[:,0:2].reshape(-1)), 0)
-        rewards_prev = torch.cat((rewards_0.reshape(-1), rewards_1.reshape(-1)), 0)
-        return self.qnetwork_target.encode(states_prev, rewards_prev).detach()
+        states, _, rewards, _, _, _ = self.memory.sample_last(last_traj_index)
+        return self.qnetwork_target.encode(states, rewards).detach()
 
-    def act(self, z, state, eps=0.):
+    def act(self, z, state, eps=0.0):
         """Returns actions for given state as per current policy.
 
         Params
@@ -124,7 +134,7 @@ class Agent():
         state = torch.from_numpy(state).float().unsqueeze(0).to(device)
         self.qnetwork_local.eval()
         with torch.no_grad():
-            action_values = self.qnetwork_local(z.detach(), state)
+            action_values = self.qnetwork_local(z.detach().to(device), state.to(device))
             action_values = self.softmax(action_values).cpu().data.numpy()[0]
         self.qnetwork_local.train()
 
@@ -144,36 +154,40 @@ class Agent():
         """
 
         """Collect experiences from sampled sequence of trajectories."""
-        states_0, _, rewards_0, _, _, info_0 = self.memory.sample_last(index)
-        states_1, _, rewards_1, _, _, info_1 = self.memory.sample_last(index+1)
-        states_2, actions_2, rewards_2, next_states_2, dones_2, info_2 = self.memory.sample_random(index+2)
-
-        """Encode the final position and rewards from previous two trajectories."""
-        states_prev = torch.cat((states_0[:,0:2].reshape(-1), states_1[:,0:2].reshape(-1)), 0)
-        rewards_prev = torch.cat((rewards_0.reshape(-1), rewards_1.reshape(-1)), 0)
+        states_prev, _, rewards_prev, _, _, info_prev = self.memory.sample_last(index)
+        states_last, _, rewards_last, _, _, info_last = self.memory.sample_last(index+1)
+        states, actions, rewards, next_states, dones, info = self.memory.sample_random(index+1)
 
         """Get max predicted Q values (for next states) from target model"""
         if self.type == "naive":
-            z = info_1 * 0      # for naive baseline
+            z = info_prev * 0      # for naive baseline
         elif self.type == "dqn":
-            z = info_1          # for dqn baseline
+            z = info_prev          # for dqn baseline
         elif self.type == "ours":
             z = self.qnetwork_target.encode(states_prev, rewards_prev).detach()
-        Q_targets_next = self.qnetwork_target(z, next_states_2).detach().max(1)[0].unsqueeze(1)
+        Q_targets_next = self.qnetwork_target(z, next_states).detach().max(1)[0].unsqueeze(1)
         """Compute Q targets for current states"""
-        Q_targets = rewards_2 + (gamma * Q_targets_next * (1 - dones_2))
+        Q_targets = rewards + (gamma * Q_targets_next * (1 - dones))
 
         """Get expected Q values from local model"""
         if self.type == "naive":
-            z = info_1 * 0      # for naive baseline
+            z = info_prev * 0      # for naive baseline
         elif self.type == "dqn":
-            z = info_1          # for dqn baseline
+            z = info_prev          # for dqn baseline
         elif self.type == "ours":
             z = self.qnetwork_local.encode(states_prev, rewards_prev)
-        Q_expected = self.qnetwork_local(z, states_2).gather(1, actions_2)
+        Q_expected = self.qnetwork_local(z, states).gather(1, actions)
+
+        pred_reward = self.qnetwork_local.decode(z, states_last)
 
         # Compute loss
-        loss = F.mse_loss(Q_expected, Q_targets)
+        self.Q_loss = Q_loss = F.mse_loss(Q_expected, Q_targets)
+        self.recon_loss = recon_loss = F.mse_loss(rewards_last, pred_reward)
+        if self.type == "ours":
+            loss = Q_loss + recon_loss
+        else:
+            loss = Q_loss
+
         # Minimize the loss
         self.optimizer.zero_grad()
         loss.backward()
@@ -225,13 +239,15 @@ class ReplayBuffer:
     def sample_random(self, idx):
         """Get random experiences from trajectory."""
         traj = self.memory[idx]
-        xi = random.sample(traj, k=TRAJ_LEN)
+        xi = random.sample(traj, k=TRAJ_LEN_Q)
         return self.process(xi)
 
     def sample_last(self, idx):
-        """Get last experience from trajectory."""
+        """Get last experiences from trajectory."""
         traj = self.memory[idx]
-        xi = [traj[-1]]
+        xi = []
+        for jdx in range(len(traj)-TRAJ_LEN_recon, len(traj)):
+            xi.append(traj[jdx])
         return self.process(xi)
 
     def process(self, traj):
@@ -246,7 +262,7 @@ class ReplayBuffer:
 
     def sample_pair(self):
         """Randomly sample trajectory from memory."""
-        return random.randint(0, len(self.memory) - 3)
+        return random.randint(0, len(self.memory) - 2)
 
     def __len__(self):
         """Return the current size of internal memory."""
@@ -295,6 +311,8 @@ def train(agent, type,
         if i_episode % 100 == 0:
             print('\rEpisode {}\tAverage Score: {:.2f}'.format(i_episode, np.mean(scores_window)))
             torch.save(agent.qnetwork_local.state_dict(), savename)
+            print('Q Loss: {}'.format(agent.Q_loss.item()))
+            print('Recon Loss: {}'.format(agent.recon_loss.item()))
     torch.save(agent.qnetwork_local.state_dict(), savename)
     env.close()
     return (scores, thetas)
