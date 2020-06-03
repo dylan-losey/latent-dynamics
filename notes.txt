@@ -1,4 +1,1 @@
-- have DQN working in general...
-- influence does not seem to be much different than greedy for ours
-- want to apply to new environment (robot? lunar lander?)
-- applied to driving, maybe try lunar lander as well?
+- Try DQN with robosuite
