@@ -311,8 +311,8 @@ def train(agent, type,
         if i_episode % 100 == 0:
             print('\rEpisode {}\tAverage Score: {:.2f}'.format(i_episode, np.mean(scores_window)))
             torch.save(agent.qnetwork_local.state_dict(), savename)
-            print('Q Loss: {}'.format(agent.Q_loss.item()))
-            print('Recon Loss: {}'.format(agent.recon_loss.item()))
+            # print('Q Loss: {}'.format(agent.Q_loss.item()))
+            # print('Recon Loss: {}'.format(agent.recon_loss.item()))
     torch.save(agent.qnetwork_local.state_dict(), savename)
     env.close()
     return (scores, thetas)
