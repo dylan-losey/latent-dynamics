@@ -1,1 +1,8 @@
 - Try DQN with robosuite
+- Need to optimize hyperparameters (I think it should be working, env seems fine?)
+- No results yet to clearly show it works... guess run for longer?
+
+- Task for human and robot: grabbing object
+Human strategy i think is grab on opposite side?
+So they pick a side at start and stick with it,
+then if robot grabs same side they switch as well

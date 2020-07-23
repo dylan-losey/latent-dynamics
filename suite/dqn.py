@@ -13,8 +13,8 @@ from environment import Franka
 
 BUFFER_SIZE = int(1e3)  # replay buffer size
 GAMMA = 0.99            # discount factor
-TAU = 1e-3              # for soft update of target parameters
-LR = 5e-4               # learning rate
+TAU = 1e-2              # for soft update of target parameters
+LR = 1e-3               # learning rate
 UPDATE_EVERY = 4        # how often to update the network
 TRAJ_LEN_Q = 40         # how many timesteps in trajectory for Q value
 TRAJ_LEN_recon = 1      # how many timesteps in trajectory for enc-decoder

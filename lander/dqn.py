@@ -269,7 +269,7 @@ class ReplayBuffer:
         return len(self.memory)
 
 def train(agent, type,
-    n_episodes=10000, max_t=1000, eps_start=1.0, eps_end=0.01, eps_decay=0.999, savename="dqn.pth"):
+    n_episodes=6000, max_t=1000, eps_start=1.0, eps_end=0.01, eps_decay=0.999, savename="dqn.pth"):
     """Deep Q-Learning.
 
     Params
@@ -311,9 +311,11 @@ def train(agent, type,
         if i_episode % 100 == 0:
             print('\rEpisode {}\tAverage Score: {:.2f}'.format(i_episode, np.mean(scores_window)))
             torch.save(agent.qnetwork_local.state_dict(), savename)
+            pickle.dump((scores, thetas), open("results/lander_" + type + ".pkl", "wb" ))
             # print('Q Loss: {}'.format(agent.Q_loss.item()))
             # print('Recon Loss: {}'.format(agent.recon_loss.item()))
     torch.save(agent.qnetwork_local.state_dict(), savename)
+    pickle.dump((scores, thetas), open("results/lander_" + type + ".pkl", "wb" ))
     env.close()
     return (scores, thetas)
 
@@ -324,7 +326,6 @@ if __name__ == "__main__":
         latent_size = 2
     elif type == "ours":
         latent_size = 8
-    agent = Agent(type, state_size=8, latent_size=latent_size, action_size=4, seed=100)
+    agent = Agent(type, state_size=8, latent_size=latent_size, action_size=4, seed=101)
     # agent.qnetwork_local.load_state_dict(torch.load("models/lander_" + type + ".pth"))
     performance = train(agent, type, savename="models/lander_" + type + ".pth")
-    pickle.dump(performance, open("results/lander_" + type + ".pkl", "wb" ))

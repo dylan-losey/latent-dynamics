@@ -17,7 +17,7 @@ class Franka(object):
             has_renderer=False,
             ignore_done=True,
             use_camera_obs=False,
-            gripper_visualization=True,
+            gripper_visualization=False,
             control_freq=100
         )
         # reset the environment
@@ -53,15 +53,15 @@ class Franka(object):
             done = True
             reward = +1.0
             print("we made it!")
-        elif self.timestep == 500:
+        elif self.timestep == 100:
             done = True
             reward = -1.0 * dist2target
         else:
             done = False
             reward = 0.0
-            shaping = -1.0 * dist2target
+            shaping = dist2target
             if self.prev_shaping is not None:
-                reward = shaping - self.prev_shaping
+                reward = self.prev_shaping - shaping
             self.prev_shaping = shaping
         # update target
         if done:
@@ -84,8 +84,9 @@ class Franka(object):
         elif action == 6:
             dpos[2] = -self.stepsize
         action = np.concatenate([dpos, dquat, dgrasp])
-        obs, _, _, _ = self.env.step(action)
-        self.x = obs['eef_pos']
+        for idx in range(5):
+            obs, _, _, _ = self.env.step(action)
+            self.x = obs['eef_pos']
         next_state = np.array(self.x, dtype=np.float32)
         info = np.array(self.target, dtype=np.float32)
         return next_state, reward, done, info
