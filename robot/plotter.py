@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.signal import savgol_filter
 import os
 
 
@@ -9,7 +10,7 @@ def get_modes(filename):
         for line in f:
             content += [float(line)]
     content = np.asarray(content)
-    content = content[:2400]
+    content = content[2150:2350]
     print("I got the modes for this many interactions: ", len(content))
     return content
 
@@ -37,110 +38,88 @@ def plot_modes(bins):
     plt.show()
 
 
-def plot_traj(folder, n_traj, color):
-    xi = get_traj(folder, n_traj)
-    alpha = np.linspace(0.1, 1, n_traj)
-    for idx, item in enumerate(xi):
-        plt.plot(item[:,0], item[:,1],'o-',color=[color[0], color[1], color[2], alpha[idx]],MarkerFaceColor=[1,1,1],linewidth=5)
 
+def get_success(filename):
+    with open(filename) as f:
+        content = []
+        for line in f:
+            content += [float(line)]
+    content = np.asarray(content)
+    content = content[2150:2350]
+    print("I got the success for this many interactions: ", len(content))
+    return content
 
-def get_target(folder, num):
-    lst = os.listdir(folder)
-    lst.sort()
-    lst = lst[-num*2:]
-    target = []
-    for name in lst:
-        if name[-1] == 't':
-            filename = folder + '/' + name
-            with open(filename) as f:
-                content = []
-                for line in f:
-                    currentline = line.split(" ")
-                    content += [float(x) for x in currentline]
-            content = np.asarray(content)
-            content = np.reshape(content,(51,2))
-            curr_target = content[0,:].tolist()
-            target.append(curr_target)
-    target = np.asarray(target)
-    print("I got the target for this many epsiodes: ", len(target))
-    return target
-
-
-def get_density(target, n):
-    theta = np.linspace(0, 2*np.pi, n+1)[0:n]
-    center = np.zeros((n, 2))
-    for idx in range(n):
-        center[idx,:] = [np.cos(theta[idx]), np.sin(theta[idx])]
-    count = [0] * n
-    for idx in range(len(target)):
-        curr_target = target[idx,:]
-        min_dist = np.Inf
-        min_idx = None
-        for jdx in range(n):
-            curr_center = np.asarray([0.1*np.cos(theta[jdx]), 0.1*np.sin(theta[jdx])-0.05])
-            curr_dist = np.linalg.norm(curr_target - curr_center)
-            if curr_dist < min_dist:
-                min_dist = curr_dist
-                min_idx = jdx
-        count[min_idx] += 1
-    count = np.asarray(count)
-    count = count / sum(count)
-    return count, center
-
-def plot_density(d, c, r, color):
-    for idx in range(len(d)):
-        alpha = min([d[idx], 1.0])
-        circle = plt.Circle((r * c[idx,0], r * c[idx,1]), 0.1, color=[color[0],color[1],color[2],alpha])
-        plt.gcf().gca().add_artist(circle)
+def process_success(content):
+    # yhat = savgol_filter(content, 1001, 5)
+    # return yhat, 0
+    window = 100
+    filter_mean = []
+    filter_std = []
+    for idx in range(window, len(content) - window):
+        filter_mean += [np.mean(content[idx-window:idx+window])]
+        filter_std += [np.std(content[idx-window:idx+window])]
+    filter_mean = np.asarray(filter_mean)
+    filter_std = np.asarray(filter_std) / np.sqrt(2*window)
+    return filter_mean, filter_std
 
 
 file1 = 'modes_no_influence.csv'
 file2 = 'modes_influence.csv'
-content1 = get_modes(file1)
-content2 = get_modes(file2)
+file3 = 'success_no_influence.csv'
+file4 = 'success_influence.csv'
+mode1 = get_modes(file1)
+mode2 = get_modes(file2)
+succ1 = get_success(file3)
+succ2 = get_success(file4)
 
-low_idx = 2150
-high_idx = 2350
+for idx, item in enumerate(mode1):
+    if item > 0:
+        mode1[idx] = 2.0
+    else:
+        mode1[idx] = 1.0
+for idx, item in enumerate(mode2):
+    if item > 0:
+        mode2[idx] = 2.0
+    else:
+        mode2[idx] = 1.0
 
-b1 = process_modes(content1, low_idx, high_idx)
-b2 = process_modes(content2, low_idx, high_idx)
-plot_modes(b1)
-plot_modes(b2)
+reward1, reward2 = [], []
+for idx in range(len(mode1)):
+    reward1 += [mode1[idx] * succ1[idx]]
+    reward2 += [mode2[idx] * succ2[idx]]
+print(reward1, reward2)
+print(np.mean(reward1), np.std(reward1)/np.sqrt(200))
+print(np.mean(reward2), np.std(reward2)/np.sqrt(200))
+print(np.mean(succ1), np.mean(succ2))
 
-
-#
-# t1 = get_target(folder1, n_target)
-# t2 = get_target(folder2, n_target)
-# t3 = get_target(folder3, n_target)
-# (d1,c1) = get_density(t1, n_steps)
-# (d2,c2) = get_density(t2, n_steps)
-# (d3,c3) = get_density(t3, n_steps)
-#
-#
-# plt.plot(1.2*np.cos(theta), 1.2*np.sin(theta), 'w-')
-# plot_density(d1, c1, 1.0, [124./255, 111./255, 145./255])
-# plot_traj(folder1, n_traj, [124./255, 111./255, 145./255])
-# plt.axis('equal')
+# file1 = 'success_no_influence.csv'
+# file2 = 'success_influence.csv'
+# file3 = 'success_sac.csv'
+# content1 = get_modes(file1)
+# content2 = get_modes(file2)
+# content3 = get_modes(file3)
+# m1, s1 = process_success(content1)
+# m2, s2 = process_success(content2)
+# m3, s3 = process_success(content3)
+# plt.plot(m1)
+# plt.fill_between(range(len(m1)), m1 - s1, m1 + s1, alpha=0.2)
+# plt.plot(m2)
+# plt.fill_between(range(len(m2)), m2 - s2, m2 + s2, alpha=0.2)
+# plt.plot(m3)
+# plt.fill_between(range(len(m3)), m3 - s3, m3 + s3, alpha=0.2)
+# plt.plot([0, len(m1)], [0.39, 0.39])
 # plt.show()
-#
-#
-# plt.plot(1.2*np.cos(theta), 1.2*np.sin(theta), 'w-')
-# plot_density(d2, c2, 1.0, [1.0, 160./255, 0])
-# plot_traj(folder2, n_traj, [1.0, 160./255, 0])
-# plt.axis('equal')
-# plt.show()
-#
-#
-# plt.plot(1.2*np.cos(theta), 1.2*np.sin(theta), 'w-')
-# plot_density(d3, c3, 1.0, [170./255, 0, 212./255])
-# plot_traj(folder3, n_traj, [170./255, 0, 212./255])
-# plt.axis('equal')
-# plt.show()
 
 
-# plt.plot(0,0,'kx')
-# plt.plot(t1[:,0], t1[:,1],color=[0.5,0.5,0.5,1],linestyle='None',marker='o',markersize=3)
-# plt.plot(t2[:,0], t2[:,1],color=[0,0,0.8,1],linestyle='None',marker='o',markersize=5)
-# plt.plot(t3[:,0], t3[:,1],color=[1,0.5,0,1],linestyle='None',marker='o',markersize=5)
-# plt.axis([-0.2,0.2,-0.2,0.2])
-# plt.show()
+# content1 = get_modes(file1)
+# content2 = get_modes(file2)
+#
+# low_idx = 2150
+# high_idx = 2350
+#
+# b1 = process_modes(content1, low_idx, high_idx)
+# b2 = process_modes(content2, low_idx, high_idx)
+# plot_modes(b1)
+# plot_modes(b2)
+#
+#
